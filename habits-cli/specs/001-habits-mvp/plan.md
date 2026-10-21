@@ -1,42 +1,92 @@
-# Plan técnico — Spec 001
+# Plan: 001-Habits MVP
 
-## Estructura de módulos
-- habits/storage.py → cargar/guardar JSON (RF-9, RF-11)
-- habits/core.py    → lógica pura: add, done, streak, list (RF-1..8, RF-10)
-- habits/cli.py     → argparse, mensajes en español, códigos de salida
-- habits/__main__.py → permite `python -m habits`
-- tests/            → pytest, uno o más tests por RF
+## 1. Estructura de Módulos
+Siguiendo las reglas de "Pureza Lógica" y "Stack Mínimo" de la Constitución, el proyecto se organizará así:
 
-## Modelo de datos (habits.json)
+- `habits/`
+    - `__init__.py`
+    - `core.py`: Lógica pura para el cálculo de rachas. Sin dependencias de IO ni de la CLI. (Cubre **RF-3**, Regla 3 de la Constitución).
+    - `storage.py`: Capa de persistencia JSON. Gestiona la lectura y escritura del archivo plano. (Cubre **RF-1, RF-2**, Regla 5 de la Constitución).
+    - `cli.py`: Punto de entrada. Gestiona el parseo de argumentos, la interacción con el usuario en español y la orquestación. (Cubre **RF-1, RF-2, RF-3**, Regla 6 de la Constitución).
+- `tests/`
+    - `test_core.py`: Tests unitarios para la lógica de rachas.
+    - `test_storage.py`: Tests de integridad del JSON.
+    - `test_cli.py`: Tests de integración para los comandos.
+
+## 2. Modelo de Datos (JSON)
+Un diccionario simple donde las claves son los nombres de los hábitos y los valores son listas de fechas (formato ISO 8601 `YYYY-MM-DD`).
+
+**Ejemplo de `data.json`:**
+```json
 {
-  "version": 1,
-  "habits": [
-    { "name": "Estudiar Python",
-      "created_at": "2026-08-27",
-      "completions": ["2026-08-25", "2026-08-26", "2026-08-27"] }
-  ]
+  "Lectura": ["2026-10-19", "2026-10-21"],
+  "Python": ["2026-10-20", "2026-10-21"]
 }
-- Fechas ISO (YYYY-MM-DD), orden ascendente, sin duplicados (RF-5).
+```
+- **Justificación**: El JSON plano es obligatorio por la Constitución. El uso de una lista de fechas facilita el cálculo de huecos y rachas. (Cubre **RF-1, RF-2**).
 
-## Algoritmo de racha (RF-10)
-1. Si no hay completions → 0.
-2. last = última fecha. Si last < ayer → 0.
-3. Contar hacia atrás desde last mientras las fechas sean consecutivas.
+## 3. Algoritmo de Cálculo de Racha (Pseudocódigo)
+La regla de tolerancia "día por medio" (la racha solo se rompe tras dos fallos consecutivos) es el núcleo de la lógica.
 
-## Decisiones técnicas
-- argparse (stdlib) en vez de typer/click → constitución nº 1.
-- Comparación de nombres: strip() + casefold(); se conserva el original
-  para mostrar (RF-2).
-- La fecha "hoy" se INYECTA en el core (parámetro `today: date`), para
-  poder testear rachas sin mockear el reloj. La CLI pasa date.today().
-- storage nunca escribe si la carga falló → imposible machacar datos (RF-11).
+```python
+FUNCION calcular_racha(fechas_completadas):
+    SI fechas_completadas está vacía:
+        RETORNAR 0
 
-## Contrato CLI
-- habits add <nombre> | done <nombre> | list
-- stdout para resultados; stderr para errores; salidas 0/1 según spec.
+    fechas_ordenadas = ordenar(fechas_completadas)
+    hoy = obtener_fecha_actual()
+    contador_racha = 0
+    
+    # Empezar desde la fecha más reciente hacia atrás
+    fecha_chequeo = hoy
+    
+    MIENTRAS Verdadero:
+        SI fecha_chequeo está en fechas_ordenadas:
+            contador_racha += 1
+            fecha_chequeo = fecha_chequeo - 1 día
+        SINO:
+            # Encontramos un fallo.
+            # Si el día anterior (relativo a fecha_chequeo) 
+            # también falta, la racha se rompe.
+            SI (fecha_chequeo - 1 día) NO está en fechas_ordenadas:
+                ROMPER # Dos fallos consecutivos
+            SINO:
+                # Solo un fallo: se aplica la tolerancia.
+                fecha_chequeo = fecha_chequeo - 1 día
+                
+    RETORNAR contador_racha
+```
+(Cubre **RF-3**).
 
-## Estrategia de tests
-- Unitarios de core con fechas inyectadas (rachas: vacía, viva por ayer,
-  rota, de 1 día, larga).
-- storage con tmp_path de pytest (inexistente, válido, corrupto).
-- Smoke test de CLI invocando el parser.
+## 4. Contrato de la CLI
+Todos los mensajes en español. Códigos de salida: `0` para éxito, `1` para error o advertencia.
+
+| Comando | Argumentos | Salida de Éxito | Salida de Error/Advertencia | Código Salida |
+| :--- | :--- | :--- | :--- | :--- |
+| `create` | `<<nombrenombre>` | "Hábito '<<nombrenombre>' creado con éxito." | "El hábito '<<nombrenombre>' ya existe. Por favor elige otro." | 0 / 1 |
+| `done` | `<<nombrenombre>` | "¡Hábito '<<nombrenombre>' completado hoy!" | "El hábito '<<nombrenombre>' ya fue completado hoy." / "Hábito no encontrado." | 0 / 1 |
+| `list` | N/A | Tabla: `Nombre \| Racha` | "No hay hábitos creados." | 0 / 1 |
+
+(Cubre **RF-1, RF-2, RF-3**).
+
+## 5. Decisiones Técnicas
+
+| Decisión | Justificación | Alternativa | Razón del Descarte |
+| :--- | :--- | :--- | :--- |
+| **Librería `json` estándar** | Obligatorio por la Constitución. | `SQLite` | Viola la "Persistencia Simple" (Regla 5 de la Constitución). |
+| **`argparse`** | Librería estándar, robusta para CLIs simples. | `Click` / `Typer` | Añade dependencias externas (Regla 1 de la Constitución). |
+| **Cadenas de fecha ISO** | Ordenamiento lexicográfico y compatibilidad estándar. | Timestamps Unix | Más difícil de depurar visualmente en archivos JSON. |
+
+## 6. Estrategia de Tests
+Siguiendo la regla "Test-Driven" (Regla 4 de la Constitución):
+
+1.  **Tests Unitarios (`core.py`)**: Probar `calcular_racha` con múltiples escenarios:
+    - Lista vacía $\rightarrow$ 0.
+    - Racha perfecta $\rightarrow$ conteo correcto.
+    - Hueco de 1 día $\rightarrow$ el conteo continúa.
+    - Hueco de 2 días $\rightarrow$ la racha se resetea a 0.
+2.  **Tests de Persistencia (`storage.py`)**:
+    - Crear archivo si no existe.
+    - Manejar JSON corrupto (debe lanzar error según los Casos Límite).
+3.  **Tests de Integración (`cli.py`)**:
+    - Mocking de `sys.argv` y `sys.stdout` para verificar los mensajes en español y los códigos de salida.

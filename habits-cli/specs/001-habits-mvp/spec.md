@@ -1,79 +1,58 @@
-# Spec 001 — MVP de habits-cli
+# Especificación: 001-Habits MVP
 
-## Contexto y objetivo
-Los estudiantes de programación abandonan hábitos de estudio por falta de
-seguimiento. habits-cli permite registrar hábitos y ver la racha de días
-consecutivos desde la terminal, sin fricción, para reforzar la constancia.
+## Contexto y Objetivo
+El proyecto consiste en una interfaz de línea de comandos (CLI) diseñada para ayudar a los usuarios a monitorizar sus hábitos de estudio. El objetivo es proporcionar una herramienta minimalista que fomente la consistencia mediante la visualización de rachas de cumplimiento, permitiendo un seguimiento sencillo sin fricciones.
 
 ## Usuarios
-Estudiantes y desarrolladores que viven en la terminal. Un solo usuario por
-máquina; sin cuentas ni sincronización.
+- **Estudiantes**: Personas que desean trackear la regularidad de sus sesiones de estudio.
+- **Desarrolladores Junior**: El proyecto sirve como base educativa para mantenimiento y evolución.
 
-## Historias de usuario
-- H1: Como estudiante quiero crear hábitos con un nombre para tener la lista
-  de lo que quiero trabajar cada día.
-- H2: Como estudiante quiero marcar un hábito como hecho hoy para registrar
-  mi constancia.
-- H3: Como estudiante quiero ver mis hábitos con su racha actual para
-  motivarme a no romperla.
+## Historias de Usuario
+- **Como usuario**, quiero crear un hábito nuevo para empezar a trackear una actividad específica.
+- **Como usuario**, quiero marcar un hábito como completado hoy para mantener mi progreso.
+- **Como usuario**, quiero ver la lista de mis hábitos y sus rachas actuales para motivarme y saber qué estoy descuidando.
 
-## Requisitos funcionales (criterios de aceptación en EARS)
+## Requisitos Funcionales
 
-### Crear hábito (H1)
-- RF-1: CUANDO el usuario ejecute `habits add <nombre>` con un nombre no
-  vacío que no exista, EL SISTEMA creará el hábito y lo confirmará con un
-  mensaje (salida 0).
-- RF-2: SI el nombre ya existe (comparación ignorando mayúsculas/minúsculas
-  y espacios al inicio o final), ENTONCES EL SISTEMA no creará un duplicado
-  e informará del conflicto (salida 1).
-- RF-3: SI el nombre está vacío o son solo espacios, ENTONCES EL SISTEMA
-  rechazará la orden con un mensaje de error (salida 1).
+### RF-1: Creación de Hábitos
+- **Criterio de Aceptación (EARS)**: Cuando el usuario solicita crear un hábito con un nombre de hasta 50 caracteres que no existe, el sistema debe registrar el hábito y confirmar la creación.
+- **Criterio de Aceptación (EARS)**: Si el usuario intenta crear un hábito con un nombre que ya existe, el sistema debe mostrar una advertencia indicando que el nombre ya está en uso y sugerir el uso de uno diferente.
 
-### Marcar como hecho (H2)
-- RF-4: CUANDO el usuario ejecute `habits done <nombre>` y el hábito exista,
-  EL SISTEMA registrará la fecha actual como completada y lo confirmará
-  (salida 0).
-- RF-5: SI el hábito ya está completado hoy, ENTONCES EL SISTEMA lo
-  comunicará sin duplicar el registro (operación idempotente, salida 0).
-- RF-6: SI el hábito no existe, ENTONCES EL SISTEMA mostrará un error
-  sugiriendo consultar `habits list` (salida 1).
+### RF-2: Registro de Cumplimiento Diario
+- **Criterio de Aceptación (EARS)**: Cuando el usuario marca un hábito como hecho, el sistema debe registrar la fecha actual del sistema (local) como día de cumplimiento.
+- **Criterio de Aceptación (EARS)**: Si el usuario intenta marcar un hábito que ya ha sido registrado como hecho en la fecha actual del sistema, el sistema debe informar que el hábito ya fue completado hoy y no permitir modificaciones.
 
-### Listar con rachas (H3)
-- RF-7: CUANDO el usuario ejecute `habits list`, EL SISTEMA mostrará cada
-  hábito con su racha actual en días, ordenados por racha descendente y,
-  a igualdad, por nombre alfabético (salida 0).
-- RF-8: MIENTRAS no exista ningún hábito, EL SISTEMA responderá a
-  `habits list` con un mensaje invitando a crear el primero (salida 0).
+### RF-3: Cálculo y Visualización de Rachas
+- **Criterio de Aceptación (EARS)**: Cuando el usuario solicita listar los hábitos, el sistema debe mostrar una tabla minimalista con el nombre de cada hábito y su racha actual.
+- **Criterio de Aceptación (EARS)**: El sistema debe calcular la racha actual como la **suma total de días cumplidos**, siempre que no hayan existido dos fallos consecutivos (tolerancia de día por medio).
+- **Criterio de Aceptación (EARS)**: Cuando un hábito tiene la racha rota según la regla de tolerancia, el sistema debe mostrar la racha actual como 0.
+- **Criterio de Aceptación (EARS)**: La regla de rotura de la racha se activa únicamente a partir del primer registro exitoso del hábito.
 
-### Reglas transversales
-- RF-9: EL SISTEMA almacenará todos los datos en un único archivo JSON local
-  legible por humanos.
-- RF-10: EL SISTEMA calculará la racha como el número de días consecutivos
-  completados cuyo último día sea hoy o ayer; si el último registro es
-  anterior a ayer, la racha es 0.
-- RF-11: SI el archivo de datos existe pero no es JSON válido, ENTONCES EL
-  SISTEMA abortará con un mensaje claro y NO sobrescribirá el archivo
-  (salida 1).
+## Requisitos No Funcionales
+- **Simplicidad**: La interfaz debe ser directa, evitando flujos complejos.
+- **Persistencia**: Los datos deben sobrevivir al cierre de la aplicación.
+- **Idioma**: La interacción con el usuario debe ser íntegramente en español.
 
-## Requisitos no funcionales
-- Respuesta inmediata (<1 s) en equipos modestos. Sin acceso a red.
-- Multiplataforma: macOS, Linux y Windows.
-- Mensajes al usuario en español, claros y accionables.
+## Casos Límite
+- **Cero datos**: Al listar hábitos por primera vez, el sistema debe informar que no hay hábitos creados.
+- **Racha inicial**: Un hábito recién creado comienza con racha 0 y permanece en estado latente hasta su primer registro.
+- **Cambio de día**: La racha debe actualizarse automáticamente basándose en la fecha local del sistema al momento de la consulta.
+- **Persistencia ausente**: Si el archivo de datos no existe, el sistema debe crearlo automáticamente al registrar el primer hábito.
+- **Persistencia corrupta**: Si el archivo de datos está mal formado o vacío, el sistema debe informar del error y detener la ejecución para evitar pérdida de datos.
 
-## Casos límite ya cubiertos
-- Doble `done` el mismo día → RF-5.
-- Racha con hueco de más de un día → RF-10 (racha 0).
-- Hecho ayer pero aún no hoy → RF-10 (la racha se conserva).
-- Archivo inexistente → se crea estructura vacía (parte de RF-9).
-- Archivo corrupto → RF-11.
+## Fuera de Alcance
+- Registro de hábitos en fechas pasadas (retroactividad).
+- Edición o eliminación de hábitos existentes.
+- Metas numéricas o temporales por hábito.
+- Categorización de hábitos.
+- Gestión compleja de zonas horarias (se usa la fecha local del sistema).
 
-## Fuera de alcance (MVP)
-Editar, renombrar o borrar hábitos; marcar fechas pasadas; estadísticas;
-colores; recordatorios; sincronización; interfaz TUI.
+## Criterios de Finalización
+- Implementación de los tres comandos principales (crear, marcar, listar).
+- Verificación de la lógica de tolerancia de racha (día por medio) y cálculo basado en días cumplidos.
+- Validación de la inmutabilidad del registro diario.
+- Implementación de la tabla minimalista de salida.
+- Pruebas unitarias que cubran los casos de éxito y error definidos.
 
-## Criterios de finalización
-- Todos los RF cubiertos por al menos un test automático y `pytest -q` en verde.
-- Demo manual del flujo add → done → list sin errores.
-
-## Dudas abiertas
-- Ninguna. (Las 6 dudas iniciales se resolvieron en la clarificación.)
+## Dudas Abiertas
+- [SIN ACLARACIÓN]: No existen dudas abiertas en este momento.

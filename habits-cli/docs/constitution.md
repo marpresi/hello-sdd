@@ -1,16 +1,8 @@
-# Constitución — habits-cli
+# Constitución del Proyecto: StudyHabits CLI
 
-Principios innegociables. Toda spec, plan y tarea debe cumplirlos.
-
-1. **Simplicidad primero**: Python 3.12+ y solo biblioteca estándar en la
-   aplicación. Única dependencia de desarrollo permitida: pytest.
-2. **La spec manda**: ningún comportamiento se implementa si no está en la
-   spec activa. Si falta una decisión, se detiene el trabajo y se pregunta.
-3. **Lógica separada de interfaz**: el núcleo (core) no imprime ni lee de
-   consola. La CLI es una capa fina. Todo el core es testeable sin la CLI.
-4. **Tests como puerta**: cada tarea termina con sus tests en verde.
-   Prohibido avanzar con tests en rojo.
-5. **Datos locales y transparentes**: persistencia en un único archivo JSON
-   legible. Nada de bases de datos ni de red.
-6. **Idioma**: código e identificadores en inglés; mensajes al usuario y
-   documentación en español.
+1. **Stack Mínimo**: Solo Python estándar y librerías externas justificadas en `requirements.txt`.
+2. **Sincronía Total**: Cualquier cambio en la funcionalidad debe reflejarse primero en el `spec.md`.
+3. **Pureza Lógica**: El núcleo de cálculo de rachas no puede importar módulos de CLI ni de IO.
+4. **Test-Driven**: No se mergea ninguna funcionalidad sin su test unitario correspondiente en `/tests`.
+5. **Persistencia Simple**: Los datos se almacenan exclusivamente en archivos JSON planos.
+6. **Idioma**: Código y variables en inglés; comentarios y mensajes al usuario en español.
